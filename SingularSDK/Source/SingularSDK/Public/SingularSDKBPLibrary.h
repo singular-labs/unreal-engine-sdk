@@ -33,23 +33,30 @@ class USingularSDKBPLibrary : public UBlueprintFunctionLibrary
 
     // start
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Initialize Singular SDK", Keywords = "Singular"), Category = "Singular-SDK")
-    static bool Initialize(FString apiKey, FString apiSecret, bool skAdNetworkEnabled=false);
+    static bool Initialize(FString apiKey, FString apiSecret,
+                           int sessionTimeout = 60,
+                           FString customUserId = TEXT(""),
+                           bool skAdNetworkEnabled = false,
+                           bool oaidCollection = false);
     
     // track events
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Send Event", Keywords = "Singular Event"), Category = "Singular-SDK")
     static void SendEvent(FString eventName);
     
-    UFUNCTION(BlueprintCallable, meta = (DisplayName = "Send Event with args", Keywords = "Singular Event"), Category = "Singular-SDK")
+    UFUNCTION(BlueprintCallable, meta = (DisplayName = "Send Event With Args", Keywords = "Singular Event"), Category = "Singular-SDK")
     static void SendEventWithArgs(FString eventName, TMap<FString, FString> args);
+    
+    UFUNCTION(BlueprintCallable, meta = (DisplayName = "Send Revenue", Keywords = "Singular Revenue"), Category = "Singular-SDK")
+    static void SendRevenue(FString eventName, FString currency, float amount);
+    
+    UFUNCTION(BlueprintCallable, meta = (DisplayName = "Send Revenue With Args", Keywords = "Singular Revenue"), Category = "Singular-SDK")
+    static void SendRevenueWithArgs(FString eventName, FString currency, float amount, TMap<FString, FString> args);
     
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Set Custom User Id", Keywords = "Custom User Id"), Category = "Singular-SDK")
     static void SetCustomUserId(FString customUserId);
     
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Unset Custom User Id", Keywords = "Custom User Id"), Category = "Singular-SDK")
     static void UnsetCustomUserId();
-    
-    UFUNCTION(BlueprintCallable, meta = (DisplayName = "Revenue", Keywords = "revenue"), Category = "Singular-SDK")
-    static void Revenue(FString currency, float amount);
     
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Set Uninstall Token", Keywords = "Uninstall"), Category = "Singular-SDK")
     static void SetUninstallToken(FString token);

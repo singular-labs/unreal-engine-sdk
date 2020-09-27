@@ -27,9 +27,11 @@ dependencies {
 
     // Singular Fields
 
-    private String singularApiKey;
-    private String singularApiSecret;
-    private Intent singularCurrentIntent;
+    private String singularApiKey = null;
+    private String singularApiSecret = null;
+    private int singularSessionTimeoutInSec = 60;
+    private String singularCustomUserId = null;
+    private boolean singularCollectOAID = false;
 
     // Singular Initialization Methods
 
@@ -37,9 +39,12 @@ dependencies {
         Singular.setWrapperNameAndVersion(wrapperName, version);
     }
 
-    public void setSingularData(String key, String secret) {
-        singularApiKey = key;
-        singularApiSecret = secret;
+    public void setSingularData(Map&lt;String, Object&gt; configValues) {
+        singularApiKey = (String)configValues.get("apikey");
+        singularApiSecret = (String)configValues.get("secret");
+        singularSessionTimeoutInSec = Integer.parseInt((String)configValues.get("sessionTimeout"));
+        singularCustomUserId = (String)configValues.get("customUserId");
+        singularCollectOAID = Boolean.parseBoolean((String)configValues.get("oaidCollection"));
 
         initSingular();
     }
@@ -49,11 +54,15 @@ dependencies {
             return;
         }
 
-        SingularConfig config = new SingularConfig(singularApiKey, singularApiSecret);
+        SingularConfig config = new SingularConfig(singularApiKey, singularApiSecret).
+                withSessionTimeoutInSec(singularSessionTimeoutInSec);
 
-        if (singularCurrentIntent != null) {
-            // TODO: singular links
-            singularCurrentIntent = null;
+        if (singularCustomUserId != null) {
+            config.withCustomUserId(singularCustomUserId);
+        }
+
+        if (singularCollectOAID) {
+            config.withOAIDCollection();
         }
 
         Singular.init(getApplicationContext(), config);
@@ -69,7 +78,11 @@ dependencies {
         Singular.eventJSON(eventName, new JSONObject(args));
     }
 
-    public void singularRevenue(String eventName, String currency, double amount, Map&lt;String, Object&gt; attributes) {
+    public void singularRevenue(String eventName, String currency, double amount) {
+        Singular.customRevenue(eventName, currency, amount);
+    }
+
+    public void singularRevenueWithArgs(String eventName, String currency, double amount, Map&lt;String, Object&gt; attributes) {
         Singular.customRevenue(eventName, currency, amount, attributes);
     }
 
@@ -125,7 +138,6 @@ dependencies {
     </gameActivityClassAdditions>
     <gameActivityOnCreateAdditions>
         <insert>
-        singularCurrentIntent = getIntent();
         initSingular();
         </insert>
     </gameActivityOnCreateAdditions>

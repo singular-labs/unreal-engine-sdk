@@ -65,17 +65,30 @@ USingularSDKBPLibrary::USingularSDKBPLibrary(const FObjectInitializer& ObjectIni
 
 bool USingularSDKBPLibrary::isInitialized = false;
 
-bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret, bool skAdNetworkEnabled)
+bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
+                                       int sessionTimeout,
+                                       FString customUserId,
+                                       bool skAdNetworkEnabled,
+                                       bool oaidCollection)
 {
 #if PLATFORM_ANDROID
     JNIEnv* env = FAndroidApplication::GetJavaEnv();
     jmethodID setSingularWrapper = FJavaWrapper::FindMethod(env, FJavaWrapper::GameActivityClassID, "setSingularWrapper", "(Ljava/lang/String;Ljava/lang/String;)V", false);
     FJavaWrapper::CallVoidMethod(env, FJavaWrapper::GameActivityThis, setSingularWrapper, env->NewStringUTF(UNREAL_ENGINE_SDK_NAME), env->NewStringUTF(UNREAL_ENGINE_SDK_VERSION));
     
-    jmethodID setSingularData = FJavaWrapper::FindMethod(env, FJavaWrapper::GameActivityClassID, "setSingularData", "(Ljava/lang/String;Ljava/lang/String;)V", false);
-    jstring key = env->NewStringUTF(TCHAR_TO_UTF8(*apiKey));
-    jstring secret = env->NewStringUTF(TCHAR_TO_UTF8(*apiSecret));
-    FJavaWrapper::CallVoidMethod(env, FJavaWrapper::GameActivityThis, setSingularData, key, secret);
+    jmethodID setSingularData = FJavaWrapper::FindMethod(env, FJavaWrapper::GameActivityClassID, "setSingularData", "(Ljava/util/Map;)V", false);
+    
+    TMap<FString, FString> configValues;
+    configValues.Add(TEXT("apikey"), apiKey);
+    configValues.Add(TEXT("secret"), apiSecret);
+    configValues.Add(TEXT("sessionTimeout"), FString::FromInt(sessionTimeout));
+    configValues.Add(TEXT("oaidCollection"), oaidCollection ? TEXT("true") : TEXT("false"));
+    
+    if (customUserId.Len() > 0) {
+        configValues.Add(TEXT("customUserId"), customUserId);
+    }
+    
+    FJavaWrapper::CallVoidMethod(env, FJavaWrapper::GameActivityThis, setSingularData, TmapToJNIMap(configValues));
     
 #elif PLATFORM_IOS
     NSString* key = apiKey.GetNSString();
@@ -127,14 +140,38 @@ void USingularSDKBPLibrary::SendEventWithArgs(FString eventName, TMap<FString, F
 #endif
 }
 
-void USingularSDKBPLibrary::Revenue(FString currency, float amount)
+void USingularSDKBPLibrary::SendRevenue(FString eventName, FString currency, float amount)
 {
     if (!isInitialized) {
         return;
     }
     
 #if PLATFORM_ANDROID
+    JNIEnv* env = FAndroidApplication::GetJavaEnv();
+    jmethodID singularRevenue = FJavaWrapper::FindMethod(env, FJavaWrapper::GameActivityClassID, "singularRevenue", "(Ljava/lang/String;Ljava/lang/String;D)V", false);
+    jstring name = env->NewStringUTF(TCHAR_TO_UTF8(*eventName));
+    jstring cur = env->NewStringUTF(TCHAR_TO_UTF8(*currency));
+    FJavaWrapper::CallVoidMethod(env, FJavaWrapper::GameActivityThis, singularRevenue, name, cur, amount);
 #elif PLATFORM_IOS
+    [Singular customRevenue:eventName.GetNSString() currency:currency.GetNSString() amount:amount];
+#endif
+}
+
+void USingularSDKBPLibrary::SendRevenueWithArgs(FString eventName, FString currency, float amount, TMap<FString, FString> args)
+{
+    if (!isInitialized) {
+        return;
+    }
+    
+#if PLATFORM_ANDROID
+    JNIEnv* env = FAndroidApplication::GetJavaEnv();
+    jmethodID singularRevenueWithArgs = FJavaWrapper::FindMethod(env, FJavaWrapper::GameActivityClassID, "singularRevenueWithArgs", "(Ljava/lang/String;Ljava/lang/String;DLjava/util/Map;)V", false);
+    jstring name = env->NewStringUTF(TCHAR_TO_UTF8(*eventName));
+    jstring cur = env->NewStringUTF(TCHAR_TO_UTF8(*currency));
+    jobject map = TmapToJNIMap(args);
+    FJavaWrapper::CallVoidMethod(env, FJavaWrapper::GameActivityThis, singularRevenueWithArgs, name, cur, amount, map);
+#elif PLATFORM_IOS
+    [Singular customRevenue:eventName.GetNSString() currency:currency.GetNSString() amount:amount withAttributes:TmapToNSDictionary(args)];
 #endif
 }
 
