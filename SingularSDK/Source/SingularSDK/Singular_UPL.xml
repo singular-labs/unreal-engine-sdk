@@ -1,0 +1,144 @@
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+    <buildGradleAdditions>
+        <insert>
+allprojects {
+    repositories {
+        maven { url 'http://maven.singular.net/' }
+    }
+}
+dependencies {
+    implementation 'com.singular.sdk:singular_sdk:9.+'
+}
+        </insert>
+    </buildGradleAdditions>
+    <androidManifestUpdates>
+        <addPermission android:name="android.permission.INTERNET" />
+        <addPermission android:name="android.permission.ACCESS_NETWORK_STATE" />
+        <addPermission android:name="BIND_GET_INSTALL_REFERRER_SERVICE" />
+    </androidManifestUpdates>
+    <gameActivityImportAdditions>
+        <insert>
+    import android.app.Application;
+    import com.singular.sdk.*;
+        </insert>
+    </gameActivityImportAdditions>
+    <gameActivityClassAdditions>
+        <insert>
+
+    // Singular Fields
+
+    private String singularApiKey = null;
+    private String singularApiSecret = null;
+    private int singularSessionTimeoutInSec = 60;
+    private String singularCustomUserId = null;
+    private boolean singularCollectOAID = false;
+
+    // Singular Initialization Methods
+
+    public void setSingularWrapper(String wrapperName, String version) {
+        Singular.setWrapperNameAndVersion(wrapperName, version);
+    }
+
+    public void setSingularData(Map&lt;String, Object&gt; configValues) {
+        singularApiKey = (String)configValues.get("apikey");
+        singularApiSecret = (String)configValues.get("secret");
+        singularSessionTimeoutInSec = Integer.parseInt((String)configValues.get("sessionTimeout"));
+        singularCustomUserId = (String)configValues.get("customUserId");
+        singularCollectOAID = Boolean.parseBoolean((String)configValues.get("oaidCollection"));
+
+        initSingular();
+    }
+
+    public void initSingular() {
+        if (singularApiKey == null || singularApiSecret == null) {
+            return;
+        }
+
+        SingularConfig config = new SingularConfig(singularApiKey, singularApiSecret).
+                withSessionTimeoutInSec(singularSessionTimeoutInSec);
+
+        if (singularCustomUserId != null) {
+            config.withCustomUserId(singularCustomUserId);
+        }
+
+        if (singularCollectOAID) {
+            config.withOAIDCollection();
+        }
+
+        Singular.init(getApplicationContext(), config);
+    }
+
+    // Singular Events Methods
+
+    public void singularEvent(String eventName) {
+        Singular.event(eventName);
+    }
+
+    public void singularEventWithArgs(String eventName, Map&lt;String, Object&gt; args) {
+        Singular.eventJSON(eventName, new JSONObject(args));
+    }
+
+    public void singularRevenue(String eventName, String currency, double amount) {
+        Singular.customRevenue(eventName, currency, amount);
+    }
+
+    public void singularRevenueWithArgs(String eventName, String currency, double amount, Map&lt;String, Object&gt; attributes) {
+        Singular.customRevenue(eventName, currency, amount, attributes);
+    }
+
+    // Singular Custom User Id Methods
+
+    public void singularSetCustomUserId(String customUserId) {
+        Singular.setCustomUserId(customUserId);
+    }
+
+    public void singularUnsetCustomUserId() {
+        Singular.unsetCustomUserId();
+    }
+
+    // Singular Uninstall Tracking Methods
+
+    public void singularSetUninstallToken(String token) {
+        Singular.setFCMDeviceToken(token);
+    }
+
+    // Singular GDPR Methods
+
+    public void singularTrackingOptIn() {
+        Singular.trackingOptIn();
+    }
+
+    public void singularTrackingUnder13() {
+        Singular.trackingUnder13();
+    }
+
+    public void singularStopAllTracking() {
+        Singular.stopAllTracking();
+    }
+
+    public void singularResumeAllTracking() {
+        Singular.resumeAllTracking();
+    }
+
+    public boolean singularIsAllTrackingStopped() {
+        return Singular.isAllTrackingStopped();
+    }
+
+    // Singular CCPA Methods
+
+    public void singularLimitDataSharing(boolean shouldLimitDataSharing) {
+        Singular.limitDataSharing(shouldLimitDataSharing);
+    }
+
+    public boolean singularGetLimitDataSharing() {
+        return Singular.getLimitDataSharing();
+    }
+
+        </insert>
+    </gameActivityClassAdditions>
+    <gameActivityOnCreateAdditions>
+        <insert>
+        initSingular();
+        </insert>
+    </gameActivityOnCreateAdditions>
+</root>

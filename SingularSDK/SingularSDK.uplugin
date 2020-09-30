@@ -1,0 +1,28 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0.0",
+	"FriendlyName": "Singular UE4 Plugin",
+	"Description": "Singular SDK wrapper for Unreal Engine",
+	"Category": "Mobile Analytics",
+	"CreatedBy": "Singular Labs",
+	"CreatedByURL": "https://www.singular.net",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "https://www.singular.net",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "SingularSDK",
+			"Type": "Runtime",
+			"LoadingPhase": "PreLoadingScreen"
+		}
+	],
+    "WhitelistPlatforms": [
+        "Android",
+        "IOS"
+    ]
+}
