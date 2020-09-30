@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright © 2010-2020 Singular Inc. All rights reserved.
 
 #pragma once
 

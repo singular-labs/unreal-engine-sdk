@@ -1,4 +1,4 @@
-// Some copyright should be here...
+// Copyright © 2010-2020 Singular Inc. All rights reserved.
 
 using UnrealBuildTool;
 
@@ -52,12 +52,14 @@ public class SingularSDK : ModuleRules
         if (Target.Platform == UnrealTargetPlatform.IOS)
         {
             PublicAdditionalLibraries.Add("sqlite3.0");
+            PublicAdditionalLibraries.Add("z");
             PublicAdditionalFrameworks.Add(
                new Framework(
                    "Singular",
-                   "Singular.framework.zip"
+                   "Singular.framework.10.1.2.zip"
                )
             );
+            PublicFrameworks.AddRange(new string[] { "AdSupport", "iAd", "StoreKit", "SystemConfiguration", "Security"});
         } else if (Target.Platform == UnrealTargetPlatform.Android)
         {
             // Unreal Plugin Language

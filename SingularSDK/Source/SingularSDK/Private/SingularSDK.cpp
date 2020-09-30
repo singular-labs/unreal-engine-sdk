@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright © 2010-2020 Singular Inc. All rights reserved.
 
 #include "SingularSDK.h"
 

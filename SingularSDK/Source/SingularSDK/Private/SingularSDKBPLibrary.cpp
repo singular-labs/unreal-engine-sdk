@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright © 2010-2020 Singular Inc. All rights reserved.
 
 #include "SingularSDKBPLibrary.h"
 #include "SingularSDK.h"
@@ -16,8 +16,6 @@
 
 #define UNREAL_ENGINE_SDK_NAME "UnrealEngine"
 #define UNREAL_ENGINE_SDK_VERSION "1.0.0"
-
-DEFINE_LOG_CATEGORY(LogSingularSDKBlueprint);
 
 #if PLATFORM_ANDROID
 
@@ -112,6 +110,10 @@ bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
         singularConfig.conversionValueUpdatedCallback = ^(NSInteger conversionValue) {
             BroadcastConversionValueUpdated(conversionValue);
         };
+    }
+    
+    if (customUserId.Len() > 0) {
+        [Singular setCustomUserId:customUserId.GetNSString()];
     }
     
     [Singular setSessionTimeout:sessionTimeout];
