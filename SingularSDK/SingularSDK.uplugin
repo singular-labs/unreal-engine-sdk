@@ -2,7 +2,7 @@
 	"FileVersion": 3,
 	"Version": 1,
 	"VersionName": "1.0.0",
-    "EngineVersion" : "4.25.0",
+    "EngineVersion" : "4.23.0",
 	"FriendlyName": "Singular SDK Plugin",
 	"Description": "Singular SDK wrapper for Unreal Engine",
 	"Category": "Mobile Analytics",
