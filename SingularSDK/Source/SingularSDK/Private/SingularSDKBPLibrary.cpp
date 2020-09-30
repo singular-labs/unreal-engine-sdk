@@ -2,6 +2,7 @@
 
 #include "SingularSDKBPLibrary.h"
 #include "SingularSDK.h"
+#include "SingularDelegates.h"
 
 #include "Logging/LogMacros.h"
 
@@ -55,6 +56,12 @@ NSDictionary* TmapToNSDictionary(TMap<FString, FString> tmap)
     return data;
 }
 
+void BroadcastConversionValueUpdated(int conversionValue) {
+    for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
+        Itr->OnConversionValueUpdated.Broadcast(conversionValue);
+    }
+}
+
 #endif
 
 USingularSDKBPLibrary::USingularSDKBPLibrary(const FObjectInitializer& ObjectInitializer)
@@ -69,6 +76,8 @@ bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
                                        int sessionTimeout,
                                        FString customUserId,
                                        bool skAdNetworkEnabled,
+                                       bool manualSkanConversionManagement,
+                                       int waitForTrackingAuthorizationWithTimeoutInterval,
                                        bool oaidCollection)
 {
 #if PLATFORM_ANDROID
@@ -96,7 +105,16 @@ bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
     
     SingularConfig* singularConfig = [[SingularConfig alloc] initWithApiKey:key andSecret:secret];
     singularConfig.skAdNetworkEnabled = skAdNetworkEnabled;
+    singularConfig.manualSkanConversionManagement = manualSkanConversionManagement;
+    singularConfig.waitForTrackingAuthorizationWithTimeoutInterval = waitForTrackingAuthorizationWithTimeoutInterval;
     
+    if (singularConfig.skAdNetworkEnabled) {
+        singularConfig.conversionValueUpdatedCallback = ^(NSInteger conversionValue) {
+            BroadcastConversionValueUpdated(conversionValue);
+        };
+    }
+    
+    [Singular setSessionTimeout:sessionTimeout];
     [Singular setWrapperName:@UNREAL_ENGINE_SDK_NAME andVersion:@UNREAL_ENGINE_SDK_VERSION];
     [Singular start:singularConfig];
 #endif
