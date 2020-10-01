@@ -56,7 +56,7 @@ public class SingularSDK : ModuleRules
             PublicAdditionalFrameworks.Add(
                new Framework(
                    "Singular",
-                   "../../ThirdParty/Singular.framework.10.1.2.zip"
+                   "../ThirdParty/Singular.framework.10.1.2.zip"
                )
             );
             PublicFrameworks.AddRange(new string[] { "AdSupport", "iAd", "StoreKit", "SystemConfiguration", "Security"});
