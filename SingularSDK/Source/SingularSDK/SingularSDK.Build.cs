@@ -56,12 +56,13 @@ public class SingularSDK : ModuleRules
             PublicAdditionalFrameworks.Add(
                new Framework(
                    "Singular",
-                   "../ThirdParty/Singular.framework.10.1.2.zip"
+                   "../ThirdParty/iOS/Singular.framework.zip"
                )
             );
             PublicFrameworks.AddRange(new string[] { "AdSupport", "iAd", "StoreKit", "SystemConfiguration", "Security"});
         } else if (Target.Platform == UnrealTargetPlatform.Android)
         {
+            PublicLibraryPaths.Add(System.IO.Path.Combine(ModuleDirectory, "../ThirdParty/Android"));
             // Unreal Plugin Language
             string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, Target.RelativeEnginePath);
             AdditionalPropertiesForReceipt.Add("AndroidPlugin", System.IO.Path.Combine(PluginPath, "Singular_UPL.xml"));

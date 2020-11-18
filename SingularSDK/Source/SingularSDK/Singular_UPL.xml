@@ -2,15 +2,14 @@
 // Copyright © 2010-2020 Singular Inc. All rights reserved.
 -->
 <root xmlns:android="http://schemas.android.com/apk/res/android">
+    <resourceCopies>
+        <copyFile src="$S(PluginDir)/../ThirdParty/Android/singular_sdk.aar" dst="$S(BuildDir)/libs/singular_sdk.aar" />
+    </resourceCopies>
+    
     <buildGradleAdditions>
         <insert>
-allprojects {
-    repositories {
-        maven { url 'http://maven.singular.net/' }
-    }
-}
 dependencies {
-    implementation 'com.singular.sdk:singular_sdk:9.+'
+    implementation files('src/main/libs/singular_sdk.aar')
 }
         </insert>
     </buildGradleAdditions>
