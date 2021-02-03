@@ -15,7 +15,7 @@
 #endif
 
 #define UNREAL_ENGINE_SDK_NAME "UnrealEngine"
-#define UNREAL_ENGINE_SDK_VERSION "1.0.0"
+#define UNREAL_ENGINE_SDK_VERSION "1.1.0"
 
 #if PLATFORM_ANDROID
 
