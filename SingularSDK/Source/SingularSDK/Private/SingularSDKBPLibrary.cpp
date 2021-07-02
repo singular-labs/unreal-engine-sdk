@@ -10,8 +10,10 @@
 #include "Android/AndroidApplication.h"
 #include "Android/AndroidJNI.h"
 #elif PLATFORM_IOS
+#include "IOSAppDelegate.h"
 #import <Singular/Singular.h>
 #import <Singular/SingularConfig.h>
+#import <Singular/SingularLinkParams.h>
 #endif
 
 #define UNREAL_ENGINE_SDK_NAME "UnrealEngine"
@@ -27,7 +29,50 @@
 // Void     V
 // int[]    [I
 // double[] [D
+extern "C"
+{
+    JNIEXPORT void JNICALL Java_com_epicgames_ue4_GameActivity_00024SingularUeLinkHandler_ResolvedLink(JNIEnv *env, jobject obj, jobject linkParams)
+    {
+        if (env->IsSameObject(linkParams, NULL))
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Uff ye nakhre"));
+            return;
+        }
 
+        TMap<FString, FString> paramsDict;
+        FSingularLinkParams singularLinkParams;
+
+        jclass clsSingularLinkParams = env->GetObjectClass(linkParams);
+
+        // jclass clsSingularLinkParams = env->FindClass("com/singular/sdk/SingularLinkParams");
+        jmethodID jGetDeeplinkID = env->GetMethodID(clsSingularLinkParams, "getDeeplink", "()Ljava/lang/String;");
+        jmethodID jGetPassthroughID = env->GetMethodID(clsSingularLinkParams, "getPassthrough", "()Ljava/lang/String;");
+        jmethodID jIsDeferredID = env->GetMethodID(clsSingularLinkParams, "isDeferred", "()Z");
+
+        jstring jDeeplink = (jstring)env->CallObjectMethod(linkParams, jGetDeeplinkID);
+        jstring jPassthrough = (jstring)env->CallObjectMethod(linkParams, jGetPassthroughID);
+        bool isDeferred = (bool)env->CallBooleanMethod(linkParams, jIsDeferredID);
+
+        if (jDeeplink)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("jDeeplink is not null"));
+            const char* c_deeplink_string_value = env->GetStringUTFChars(jDeeplink, NULL);
+            paramsDict.Add(TEXT("deeplink"), c_deeplink_string_value);
+        }
+
+        if (jPassthrough)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("jPassthrough is not null"));
+            const char* c_passthrough_string_value = env->GetStringUTFChars(jPassthrough, NULL);
+            paramsDict.Add(TEXT("deeplink"), c_passthrough_string_value);
+        }
+
+        paramsDict.Add(TEXT("isDeferred"), isDeferred ? TEXT("True") : TEXT("False"));
+
+        singularLinkParams.params = paramsDict;
+        BroadcastDDLHandler (singularLinkParams);       
+    }
+}
 jobject TmapToJNIMap(TMap<FString, FString> tmap)
 {
     JNIEnv* env = FAndroidApplication::GetJavaEnv();
@@ -58,6 +103,17 @@ void BroadcastConversionValueUpdated(int conversionValue) {
     for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
         Itr->OnConversionValueUpdated.Broadcast(conversionValue);
     }
+}
+
+void BroadcastDDLHandler(FSingularLinkParams params) {
+
+    for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
+        Itr->SingularDDLHandler.Broadcast(params);
+    }
+}
+
+static void OnOpenURL(UIApplication *application, NSURL *url, NSString *sourceApplication, id annotation)
+{
 }
 
 #endif
@@ -98,6 +154,9 @@ bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
     FJavaWrapper::CallVoidMethod(env, FJavaWrapper::GameActivityThis, setSingularData, TmapToJNIMap(configValues));
     
 #elif PLATFORM_IOS
+
+    FIOSCoreDelegates::OnOpenURL.AddStatic(&OnOpenURL);
+
     NSString* key = apiKey.GetNSString();
     NSString* secret = apiSecret.GetNSString();
     
@@ -115,7 +174,26 @@ bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
     if (customUserId.Len() > 0) {
         [Singular setCustomUserId:customUserId.GetNSString()];
     }
-    
+        singularConfig.singularLinksHandler = ^(SingularLinkParams * params) {
+
+        FSingularLinkParams linkParams;
+
+        TMap<FString, FString> paramsDict;
+        FString deeplinkValue([params getDeepLink]);
+        FString passthroughValue([params getPassthrough]);
+        bool isDeferredValue([params isDeferred]);
+
+        paramsDict.Add(TEXT("deeplink"), *deeplinkValue);
+        paramsDict.Add(TEXT("passthrough"), *passthroughValue);
+        paramsDict.Add(TEXT("isDeferred"), isDeferredValue ? TEXT("True") : TEXT("False"));
+
+        linkParams.params = paramsDict;
+
+        BroadcastDDLHandler(linkParams);
+
+
+    };
+
     [Singular setSessionTimeout:sessionTimeout];
     [Singular setWrapperName:@UNREAL_ENGINE_SDK_NAME andVersion:@UNREAL_ENGINE_SDK_VERSION];
     [Singular start:singularConfig];

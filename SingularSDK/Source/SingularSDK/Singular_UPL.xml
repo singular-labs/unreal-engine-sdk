@@ -26,6 +26,17 @@ dependencies {
     </gameActivityImportAdditions>
     <gameActivityClassAdditions>
         <insert>
+// Singular SingularLinkHandler 
+public class SingularUeLinkHandler implements SingularLinkHandler {
+    public native void ResolvedLink(Object linkParams);
+    
+    public SingularUeLinkHandler() {}
+    
+    @Override
+    public void onResolved(SingularLinkParams params) {
+        ResolvedLink(params);
+    }
+}
 
     // Singular Fields
 
