@@ -7,5 +7,5 @@ struct FSingularLinkParams
 	GENERATED_USTRUCT_BODY()
 public:
 	UPROPERTY(Category = SingularSDK, VisibleAnywhere, BlueprintReadOnly)
-	TMap<FString, FString> params;
+	TMap<FString, FString> SingularDDLParams;
 };

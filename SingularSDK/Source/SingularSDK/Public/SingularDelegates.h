@@ -7,8 +7,9 @@
 #include "SingularLinkParams.h"
 #include "SingularDelegates.generated.h"
 
+// Dynamic delegates
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnConversionValueUpdated, int, conversionValue);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSingularDDLHandler, const FSingularLinkParams&, params);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSingularDDLHandler, const FSingularLinkParams&, LinkParams);
 
 UCLASS( ClassGroup=(SingularSDK), meta=(BlueprintSpawnableComponent) )
 class SINGULARSDK_API USingularDelegates : public UActorComponent
@@ -21,7 +22,6 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Singular-SDK")
     FOnConversionValueUpdated OnConversionValueUpdated;
 
-    UPROPERTY(BlueprintAssignable, Category = "Singular-SDK")
+    UPROPERTY(BlueprintAssignable,BlueprintCallable, Category = "Singular-SDK")
     FSingularDDLHandler SingularDDLHandler;
-
 };

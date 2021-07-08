@@ -3,14 +3,15 @@
 #include "SingularSDKBPLibrary.h"
 #include "SingularSDK.h"
 #include "SingularDelegates.h"
-
+#include "UObject/UObjectIterator.h"
 #include "Logging/LogMacros.h"
 
 #if PLATFORM_ANDROID
 #include "Android/AndroidApplication.h"
 #include "Android/AndroidJNI.h"
 #elif PLATFORM_IOS
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
+#import <AppTrackingTransparency/ATTrackingManager.h>
 #import <Singular/Singular.h>
 #import <Singular/SingularConfig.h>
 #import <Singular/SingularLinkParams.h>
@@ -31,11 +32,10 @@
 // double[] [D
 extern "C"
 {
-    JNIEXPORT void JNICALL Java_com_epicgames_ue4_GameActivity_00024SingularUeLinkHandler_ResolvedLink(JNIEnv *env, jobject obj, jobject linkParams)
+    JNIEXPORT void JNICALL Java_com_epicgames_ue4_GameActivity_00024SingularUeLinkHandler_OnResolvedLink(JNIEnv *env, jobject obj, jobject linkParams)
     {
         if (env->IsSameObject(linkParams, NULL))
         {
-            UE_LOG(LogTemp, Warning, TEXT("Uff ye nakhre"));
             return;
         }
 
@@ -44,7 +44,6 @@ extern "C"
 
         jclass clsSingularLinkParams = env->GetObjectClass(linkParams);
 
-        // jclass clsSingularLinkParams = env->FindClass("com/singular/sdk/SingularLinkParams");
         jmethodID jGetDeeplinkID = env->GetMethodID(clsSingularLinkParams, "getDeeplink", "()Ljava/lang/String;");
         jmethodID jGetPassthroughID = env->GetMethodID(clsSingularLinkParams, "getPassthrough", "()Ljava/lang/String;");
         jmethodID jIsDeferredID = env->GetMethodID(clsSingularLinkParams, "isDeferred", "()Z");
@@ -55,22 +54,23 @@ extern "C"
 
         if (jDeeplink)
         {
-            UE_LOG(LogTemp, Warning, TEXT("jDeeplink is not null"));
             const char* c_deeplink_string_value = env->GetStringUTFChars(jDeeplink, NULL);
             paramsDict.Add(TEXT("deeplink"), c_deeplink_string_value);
         }
 
         if (jPassthrough)
         {
-            UE_LOG(LogTemp, Warning, TEXT("jPassthrough is not null"));
             const char* c_passthrough_string_value = env->GetStringUTFChars(jPassthrough, NULL);
             paramsDict.Add(TEXT("deeplink"), c_passthrough_string_value);
         }
 
         paramsDict.Add(TEXT("isDeferred"), isDeferred ? TEXT("True") : TEXT("False"));
 
-        singularLinkParams.params = paramsDict;
-        BroadcastDDLHandler (singularLinkParams);       
+        singularLinkParams.SingularDDLParams = paramsDict;
+
+        for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
+            Itr->SingularDDLHandler.Broadcast(singularLinkParams);
+        }
     }
 }
 jobject TmapToJNIMap(TMap<FString, FString> tmap)
@@ -106,7 +106,6 @@ void BroadcastConversionValueUpdated(int conversionValue) {
 }
 
 void BroadcastDDLHandler(FSingularLinkParams params) {
-
     for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
         Itr->SingularDDLHandler.Broadcast(params);
     }
@@ -114,6 +113,7 @@ void BroadcastDDLHandler(FSingularLinkParams params) {
 
 static void OnOpenURL(UIApplication *application, NSURL *url, NSString *sourceApplication, id annotation)
 {
+   UE_LOG(LogTemp, Warning, TEXT("I am OnOpenURL"));
 }
 
 #endif
@@ -121,10 +121,18 @@ static void OnOpenURL(UIApplication *application, NSURL *url, NSString *sourceAp
 USingularSDKBPLibrary::USingularSDKBPLibrary(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-    
+    #if PLATFORM_IOS
+        FIOSCoreDelegates::OnOpenURL.AddStatic(&OnOpenURL);
+    #endif
+
+}
+
+void USingularSDKBPLibrary::configure()
+{
 }
 
 bool USingularSDKBPLibrary::isInitialized = false;
+
 
 bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
                                        int sessionTimeout,
@@ -155,7 +163,6 @@ bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
     
 #elif PLATFORM_IOS
 
-    FIOSCoreDelegates::OnOpenURL.AddStatic(&OnOpenURL);
 
     NSString* key = apiKey.GetNSString();
     NSString* secret = apiSecret.GetNSString();
@@ -174,7 +181,7 @@ bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
     if (customUserId.Len() > 0) {
         [Singular setCustomUserId:customUserId.GetNSString()];
     }
-        singularConfig.singularLinksHandler = ^(SingularLinkParams * params) {
+    singularConfig.singularLinksHandler = ^(SingularLinkParams * params) {
 
         FSingularLinkParams linkParams;
 
@@ -183,17 +190,13 @@ bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
         FString passthroughValue([params getPassthrough]);
         bool isDeferredValue([params isDeferred]);
 
-        paramsDict.Add(TEXT("deeplink"), *deeplinkValue);
-        paramsDict.Add(TEXT("passthrough"), *passthroughValue);
-        paramsDict.Add(TEXT("isDeferred"), isDeferredValue ? TEXT("True") : TEXT("False"));
+        paramsDict.Add("deeplink", *deeplinkValue);
+        paramsDict.Add("passthrough", *passthroughValue);
+        paramsDict.Add("isDeferred", isDeferredValue ? TEXT("True") : TEXT("False"));
 
-        linkParams.params = paramsDict;
-
-        BroadcastDDLHandler(linkParams);
-
-
+        linkParams.SingularDDLParams = paramsDict;
+        BroadcastDDLHandler(linkParams);     
     };
-
     [Singular setSessionTimeout:sessionTimeout];
     [Singular setWrapperName:@UNREAL_ENGINE_SDK_NAME andVersion:@UNREAL_ENGINE_SDK_VERSION];
     [Singular start:singularConfig];

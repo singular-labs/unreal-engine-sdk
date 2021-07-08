@@ -11,6 +11,7 @@ class SINGULARSDK_API USingularSDKBPLibrary : public UBlueprintFunctionLibrary
     static bool isInitialized;
     
     GENERATED_UCLASS_BODY()
+	static void configure();
 
     // start
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Initialize Singular SDK", Keywords = "Singular"), Category = "Singular-SDK")
