@@ -121,14 +121,14 @@ static void OnOpenURL(UIApplication *application, NSURL *url, NSString *sourceAp
 USingularSDKBPLibrary::USingularSDKBPLibrary(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-    #if PLATFORM_IOS
-        FIOSCoreDelegates::OnOpenURL.AddStatic(&OnOpenURL);
-    #endif
 
 }
 
 void USingularSDKBPLibrary::configure()
 {
+    #if PLATFORM_IOS
+        FIOSCoreDelegates::OnOpenURL.AddStatic(&OnOpenURL);
+    #endif
 }
 
 bool USingularSDKBPLibrary::isInitialized = false;
