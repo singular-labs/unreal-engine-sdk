@@ -4,8 +4,8 @@
 USTRUCT(BlueprintType)
 struct FSingularLinkParams
 {
-	GENERATED_USTRUCT_BODY()
+    GENERATED_USTRUCT_BODY()
 public:
-	UPROPERTY(Category = SingularSDK, VisibleAnywhere, BlueprintReadOnly)
-	TMap<FString, FString> SingularDDLParams;
+    UPROPERTY(Category = SingularSDK, VisibleAnywhere, BlueprintReadOnly)
+    TMap<FString, FString> SingularLinksParams;
 };

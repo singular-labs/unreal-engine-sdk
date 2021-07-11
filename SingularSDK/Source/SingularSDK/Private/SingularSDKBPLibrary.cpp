@@ -3,7 +3,6 @@
 #include "SingularSDKBPLibrary.h"
 #include "SingularSDK.h"
 #include "SingularDelegates.h"
-#include "UObject/UObjectIterator.h"
 #include "Logging/LogMacros.h"
 
 #if PLATFORM_ANDROID
@@ -11,14 +10,13 @@
 #include "Android/AndroidJNI.h"
 #elif PLATFORM_IOS
 #include "IOS/IOSAppDelegate.h"
-#import <AppTrackingTransparency/ATTrackingManager.h>
 #import <Singular/Singular.h>
 #import <Singular/SingularConfig.h>
 #import <Singular/SingularLinkParams.h>
 #endif
 
 #define UNREAL_ENGINE_SDK_NAME "UnrealEngine"
-#define UNREAL_ENGINE_SDK_VERSION "1.3.0"
+#define UNREAL_ENGINE_SDK_VERSION "1.4.0"
 
 #if PLATFORM_ANDROID
 
@@ -39,7 +37,7 @@ extern "C"
             return;
         }
 
-        TMap<FString, FString> paramsDict;
+        TMap<FString, FString> params;
         FSingularLinkParams singularLinkParams;
 
         jclass clsSingularLinkParams = env->GetObjectClass(linkParams);
@@ -55,22 +53,19 @@ extern "C"
         if (jDeeplink)
         {
             const char* c_deeplink_string_value = env->GetStringUTFChars(jDeeplink, NULL);
-            paramsDict.Add(TEXT("deeplink"), c_deeplink_string_value);
+            params.Add(TEXT("deeplink"), c_deeplink_string_value);
         }
 
         if (jPassthrough)
         {
             const char* c_passthrough_string_value = env->GetStringUTFChars(jPassthrough, NULL);
-            paramsDict.Add(TEXT("deeplink"), c_passthrough_string_value);
+            params.Add(TEXT("deeplink"), c_passthrough_string_value);
         }
 
-        paramsDict.Add(TEXT("isDeferred"), isDeferred ? TEXT("True") : TEXT("False"));
+        params.Add(TEXT("isDeferred"), isDeferred ? TEXT("True") : TEXT("False"));
 
-        singularLinkParams.SingularDDLParams = paramsDict;
-
-        for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
-            Itr->SingularDDLHandler.Broadcast(singularLinkParams);
-        }
+        singularLinkParams.SingularLinksParams = params;
+        BroadcastOnSingularLinksResolved(singularLinkParams);
     }
 }
 
@@ -106,12 +101,11 @@ void BroadcastConversionValueUpdated(int conversionValue) {
     }
 }
 
-void BroadcastDDLHandler(FSingularLinkParams params) {
+void BroadcastOnSingularLinksResolved(FSingularLinkParams params) {
     for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
-        Itr->SingularDDLHandler.Broadcast(params);
+        Itr->OnSingularLinksResolved.Broadcast(params);
     }
 }
-
 
 
 #endif
@@ -173,8 +167,8 @@ void USingularSDKBPLibrary::InitializeIOS(NSDictionary* launchOptions, NSURL *ur
         paramsDict.Add("passthrough", *passthroughValue);
         paramsDict.Add("isDeferred", isDeferredValue ? TEXT("True") : TEXT("False"));
 
-        linkParams.SingularDDLParams = paramsDict;
-        BroadcastDDLHandler(linkParams);
+        linkParams.SingularLinksParams = paramsDict;
+        BroadcastOnSingularLinksResolved(linkParams);
     };
     
     [Singular setSessionTimeout:singularSessionTimeout];
@@ -188,6 +182,9 @@ void USingularSDKBPLibrary::OnOpenURL(UIApplication *application, NSURL *url, NS
 
 void USingularSDKBPLibrary::OnWillResignActive(){
     if (!didRegisterToOpenUrl){
+        // OnOpenURL is opened everytime the app is opened with a deeplink.
+        // We register for only here because we don't it to handle cold opens.
+        // For cold opens we use the launch options in the init method
         FIOSCoreDelegates::OnOpenURL.AddStatic(&OnOpenURL);
         didRegisterToOpenUrl = true;
     }
@@ -234,10 +231,14 @@ bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
         [Singular setCustomUserId:customUserId.GetNSString()];
     }
     
+    // Here we read the launch options.
+    // We read the Singular Links here only for cold starts.
     UIApplication* Application = [UIApplication sharedApplication];
     IOSAppDelegate* appDelegate = (IOSAppDelegate*)[Application delegate];
     NSDictionary* launchOptions = appDelegate.launchOptions;
     
+    // We need to register to background in order to use Singular Links
+    // when the app is already opened.
     if (!didRegisterToWillGoToBackground){
         FIOSCoreDelegates::OnWillResignActive.AddStatic(&OnWillResignActive);
         didRegisterToWillGoToBackground = true;
