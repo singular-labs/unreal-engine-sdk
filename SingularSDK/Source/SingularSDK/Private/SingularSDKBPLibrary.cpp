@@ -3,19 +3,20 @@
 #include "SingularSDKBPLibrary.h"
 #include "SingularSDK.h"
 #include "SingularDelegates.h"
-
 #include "Logging/LogMacros.h"
 
 #if PLATFORM_ANDROID
 #include "Android/AndroidApplication.h"
 #include "Android/AndroidJNI.h"
 #elif PLATFORM_IOS
+#include "IOS/IOSAppDelegate.h"
 #import <Singular/Singular.h>
 #import <Singular/SingularConfig.h>
+#import <Singular/SingularLinkParams.h>
 #endif
 
 #define UNREAL_ENGINE_SDK_NAME "UnrealEngine"
-#define UNREAL_ENGINE_SDK_VERSION "1.3.0"
+#define UNREAL_ENGINE_SDK_VERSION "1.4.0"
 
 #if PLATFORM_ANDROID
 
@@ -27,6 +28,46 @@
 // Void     V
 // int[]    [I
 // double[] [D
+extern "C"
+{
+    JNIEXPORT void JNICALL Java_com_epicgames_ue4_GameActivity_00024SingularUeLinkHandler_OnResolvedLink(JNIEnv *env, jobject obj, jobject linkParams)
+    {
+        if (env->IsSameObject(linkParams, NULL))
+        {
+            return;
+        }
+
+        TMap<FString, FString> params;
+        FSingularLinkParams singularLinkParams;
+
+        jclass clsSingularLinkParams = env->GetObjectClass(linkParams);
+
+        jmethodID jGetDeeplinkID = env->GetMethodID(clsSingularLinkParams, "getDeeplink", "()Ljava/lang/String;");
+        jmethodID jGetPassthroughID = env->GetMethodID(clsSingularLinkParams, "getPassthrough", "()Ljava/lang/String;");
+        jmethodID jIsDeferredID = env->GetMethodID(clsSingularLinkParams, "isDeferred", "()Z");
+
+        jstring jDeeplink = (jstring)env->CallObjectMethod(linkParams, jGetDeeplinkID);
+        jstring jPassthrough = (jstring)env->CallObjectMethod(linkParams, jGetPassthroughID);
+        bool isDeferred = (bool)env->CallBooleanMethod(linkParams, jIsDeferredID);
+
+        if (jDeeplink)
+        {
+            const char* c_deeplink_string_value = env->GetStringUTFChars(jDeeplink, NULL);
+            params.Add(TEXT("deeplink"), c_deeplink_string_value);
+        }
+
+        if (jPassthrough)
+        {
+            const char* c_passthrough_string_value = env->GetStringUTFChars(jPassthrough, NULL);
+            params.Add(TEXT("deeplink"), c_passthrough_string_value);
+        }
+
+        params.Add(TEXT("isDeferred"), isDeferred ? TEXT("True") : TEXT("False"));
+
+        singularLinkParams.SingularLinksParams = params;
+        BroadcastOnSingularLinksResolved(singularLinkParams);
+    }
+}
 
 jobject TmapToJNIMap(TMap<FString, FString> tmap)
 {
@@ -60,15 +101,98 @@ void BroadcastConversionValueUpdated(int conversionValue) {
     }
 }
 
+void BroadcastOnSingularLinksResolved(FSingularLinkParams params) {
+    for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
+        Itr->OnSingularLinksResolved.Broadcast(params);
+    }
+}
+
+
 #endif
 
 USingularSDKBPLibrary::USingularSDKBPLibrary(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-    
+
+}
+
+void USingularSDKBPLibrary::configure()
+{
+
 }
 
 bool USingularSDKBPLibrary::isInitialized = false;
+
+#if PLATFORM_IOS
+// We save all the params as static from the init method
+// Then they can be later used when opened with a deeplink from background.
+FString USingularSDKBPLibrary::singularApiKey;
+FString USingularSDKBPLibrary::singularSecret;
+int USingularSDKBPLibrary::singularSessionTimeout;
+bool USingularSDKBPLibrary::singularSkanEnabled;
+bool USingularSDKBPLibrary::singularManualSkanConversionManagement;
+int USingularSDKBPLibrary::singularWaitForTrackingAuthorizationWithTimeoutInterval;
+
+bool USingularSDKBPLibrary::didRegisterToOpenUrl = false;
+bool USingularSDKBPLibrary::didRegisterToWillGoToBackground = false;
+
+void USingularSDKBPLibrary::InitializeIOS(NSDictionary* launchOptions, NSURL *url){
+    NSString* key = singularApiKey.GetNSString();
+    NSString* secret = singularSecret.GetNSString();
+    
+    SingularConfig* singularConfig = [[SingularConfig alloc] initWithApiKey:key andSecret:secret];
+    singularConfig.skAdNetworkEnabled = singularSkanEnabled;
+    singularConfig.manualSkanConversionManagement = singularManualSkanConversionManagement;
+    singularConfig.waitForTrackingAuthorizationWithTimeoutInterval = singularWaitForTrackingAuthorizationWithTimeoutInterval;
+    
+    if (launchOptions) {
+        singularConfig.launchOptions = launchOptions;
+    } else if (url) {
+        singularConfig.openUrl = url;
+    }
+    
+    if (singularConfig.skAdNetworkEnabled) {
+        singularConfig.conversionValueUpdatedCallback = ^(NSInteger conversionValue) {
+            BroadcastConversionValueUpdated(conversionValue);
+        };
+    }
+    
+    singularConfig.singularLinksHandler = ^(SingularLinkParams * params) {
+        FSingularLinkParams linkParams;
+
+        TMap<FString, FString> paramsDict;
+        FString deeplinkValue([params getDeepLink]);
+        FString passthroughValue([params getPassthrough]);
+        bool isDeferredValue([params isDeferred]);
+
+        paramsDict.Add("deeplink", *deeplinkValue);
+        paramsDict.Add("passthrough", *passthroughValue);
+        paramsDict.Add("isDeferred", isDeferredValue ? TEXT("True") : TEXT("False"));
+
+        linkParams.SingularLinksParams = paramsDict;
+        BroadcastOnSingularLinksResolved(linkParams);
+    };
+    
+    [Singular setSessionTimeout:singularSessionTimeout];
+    [Singular setWrapperName:@UNREAL_ENGINE_SDK_NAME andVersion:@UNREAL_ENGINE_SDK_VERSION];
+    [Singular start:singularConfig];
+}
+
+void USingularSDKBPLibrary::OnOpenURL(UIApplication *application, NSURL *url, NSString *sourceApplication, id annotation){
+    USingularSDKBPLibrary::InitializeIOS(nil, url);
+}
+
+void USingularSDKBPLibrary::OnWillResignActive(){
+    if (!didRegisterToOpenUrl){
+        // OnOpenURL is opened everytime the app is opened with a deeplink.
+        // We register only here because we don't it to handle cold opens.
+        // For cold opens we use the launch options in the init method.
+        FIOSCoreDelegates::OnOpenURL.AddStatic(&OnOpenURL);
+        didRegisterToOpenUrl = true;
+    }
+}
+
+#endif
 
 bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
                                        int sessionTimeout,
@@ -98,27 +222,31 @@ bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
     FJavaWrapper::CallVoidMethod(env, FJavaWrapper::GameActivityThis, setSingularData, TmapToJNIMap(configValues));
     
 #elif PLATFORM_IOS
-    NSString* key = apiKey.GetNSString();
-    NSString* secret = apiSecret.GetNSString();
-    
-    SingularConfig* singularConfig = [[SingularConfig alloc] initWithApiKey:key andSecret:secret];
-    singularConfig.skAdNetworkEnabled = skAdNetworkEnabled;
-    singularConfig.manualSkanConversionManagement = manualSkanConversionManagement;
-    singularConfig.waitForTrackingAuthorizationWithTimeoutInterval = waitForTrackingAuthorizationWithTimeoutInterval;
-    
-    if (singularConfig.skAdNetworkEnabled) {
-        singularConfig.conversionValueUpdatedCallback = ^(NSInteger conversionValue) {
-            BroadcastConversionValueUpdated(conversionValue);
-        };
-    }
+    singularApiKey = apiKey;
+    singularSecret = apiSecret;
+    singularSessionTimeout = sessionTimeout;
+    singularSkanEnabled = skAdNetworkEnabled;
+    singularManualSkanConversionManagement = manualSkanConversionManagement;
+    singularWaitForTrackingAuthorizationWithTimeoutInterval = waitForTrackingAuthorizationWithTimeoutInterval;
     
     if (customUserId.Len() > 0) {
         [Singular setCustomUserId:customUserId.GetNSString()];
     }
     
-    [Singular setSessionTimeout:sessionTimeout];
-    [Singular setWrapperName:@UNREAL_ENGINE_SDK_NAME andVersion:@UNREAL_ENGINE_SDK_VERSION];
-    [Singular start:singularConfig];
+    // Here we read the launch options.
+    // We read the Singular Links here only for cold starts.
+    UIApplication* Application = [UIApplication sharedApplication];
+    IOSAppDelegate* appDelegate = (IOSAppDelegate*)[Application delegate];
+    NSDictionary* launchOptions = appDelegate.launchOptions;
+    
+    // We need to register to background in order to use Singular Links
+    // when the app is already opened.
+    if (!didRegisterToWillGoToBackground){
+        FIOSCoreDelegates::OnWillResignActive.AddStatic(&OnWillResignActive);
+        didRegisterToWillGoToBackground = true;
+    }
+    
+    InitializeIOS(launchOptions, nil);
 #endif
     
     // Unreal Engine uses execptions disabled flag we can't add try/catch

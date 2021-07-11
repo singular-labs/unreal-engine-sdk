@@ -26,6 +26,17 @@ dependencies {
     </gameActivityImportAdditions>
     <gameActivityClassAdditions>
         <insert>
+    // SingularLinkHandler 
+    public class SingularUeLinkHandler implements SingularLinkHandler {
+        public native void OnResolvedLink(Object linkParams);
+    
+        public SingularUeLinkHandler() {}
+    
+        @Override
+        public void onResolved(SingularLinkParams params) {
+            OnResolvedLink(params);
+        }
+    }
 
     // Singular Fields
 
@@ -66,6 +77,8 @@ dependencies {
         if (singularCollectOAID) {
             config.withOAIDCollection();
         }
+        
+        config.withSingularLink(getIntent(), new SingularUeLinkHandler());
 
         Singular.init(getApplicationContext(), config);
     }

@@ -1,13 +1,18 @@
 // Copyright © 2010-2020 Singular Inc. All rights reserved.
 
 #include "SingularSDK.h"
+#include "SingularSDKBPLibrary.h"
 
 #define LOCTEXT_NAMESPACE "FSingularSDKModule"
 
 void FSingularSDKModule::StartupModule()
 {
+
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
-	
+	#if PLATFORM_IOS
+    	USingularSDKBPLibrary::configure();
+	#endif
+
 }
 
 void FSingularSDKModule::ShutdownModule()
