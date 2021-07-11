@@ -73,6 +73,7 @@ extern "C"
         }
     }
 }
+
 jobject TmapToJNIMap(TMap<FString, FString> tmap)
 {
     JNIEnv* env = FAndroidApplication::GetJavaEnv();
@@ -111,10 +112,7 @@ void BroadcastDDLHandler(FSingularLinkParams params) {
     }
 }
 
-static void OnOpenURL(UIApplication *application, NSURL *url, NSString *sourceApplication, id annotation)
-{
-   UE_LOG(LogTemp, Warning, TEXT("I am OnOpenURL"));
-}
+
 
 #endif
 
@@ -126,13 +124,76 @@ USingularSDKBPLibrary::USingularSDKBPLibrary(const FObjectInitializer& ObjectIni
 
 void USingularSDKBPLibrary::configure()
 {
-    #if PLATFORM_IOS
-        FIOSCoreDelegates::OnOpenURL.AddStatic(&OnOpenURL);
-    #endif
+
 }
 
 bool USingularSDKBPLibrary::isInitialized = false;
 
+#if PLATFORM_IOS
+FString USingularSDKBPLibrary::singularApiKey;
+FString USingularSDKBPLibrary::singularSecret;
+int USingularSDKBPLibrary::singularSessionTimeout;
+bool USingularSDKBPLibrary::singularSkanEnabled;
+bool USingularSDKBPLibrary::singularManualSkanConversionManagement;
+int USingularSDKBPLibrary::singularWaitForTrackingAuthorizationWithTimeoutInterval;
+
+bool USingularSDKBPLibrary::didRegisterToOpenUrl = false;
+bool USingularSDKBPLibrary::didRegisterToWillGoToBackground = false;
+
+void USingularSDKBPLibrary::InitializeIOS(NSDictionary* launchOptions, NSURL *url){
+    NSString* key = singularApiKey.GetNSString();
+    NSString* secret = singularSecret.GetNSString();
+    
+    SingularConfig* singularConfig = [[SingularConfig alloc] initWithApiKey:key andSecret:secret];
+    singularConfig.skAdNetworkEnabled = singularSkanEnabled;
+    singularConfig.manualSkanConversionManagement = singularManualSkanConversionManagement;
+    singularConfig.waitForTrackingAuthorizationWithTimeoutInterval = singularWaitForTrackingAuthorizationWithTimeoutInterval;
+    
+    if (launchOptions) {
+        singularConfig.launchOptions = launchOptions;
+    } else if (url) {
+        singularConfig.openUrl = url;
+    }
+    
+    if (singularConfig.skAdNetworkEnabled) {
+        singularConfig.conversionValueUpdatedCallback = ^(NSInteger conversionValue) {
+            BroadcastConversionValueUpdated(conversionValue);
+        };
+    }
+    
+    singularConfig.singularLinksHandler = ^(SingularLinkParams * params) {
+        FSingularLinkParams linkParams;
+
+        TMap<FString, FString> paramsDict;
+        FString deeplinkValue([params getDeepLink]);
+        FString passthroughValue([params getPassthrough]);
+        bool isDeferredValue([params isDeferred]);
+
+        paramsDict.Add("deeplink", *deeplinkValue);
+        paramsDict.Add("passthrough", *passthroughValue);
+        paramsDict.Add("isDeferred", isDeferredValue ? TEXT("True") : TEXT("False"));
+
+        linkParams.SingularDDLParams = paramsDict;
+        BroadcastDDLHandler(linkParams);
+    };
+    
+    [Singular setSessionTimeout:singularSessionTimeout];
+    [Singular setWrapperName:@UNREAL_ENGINE_SDK_NAME andVersion:@UNREAL_ENGINE_SDK_VERSION];
+    [Singular start:singularConfig];
+}
+
+void USingularSDKBPLibrary::OnOpenURL(UIApplication *application, NSURL *url, NSString *sourceApplication, id annotation){
+    USingularSDKBPLibrary::InitializeIOS(nil, url);
+}
+
+void USingularSDKBPLibrary::OnWillResignActive(){
+    if (!didRegisterToOpenUrl){
+        FIOSCoreDelegates::OnOpenURL.AddStatic(&OnOpenURL);
+        didRegisterToOpenUrl = true;
+    }
+}
+
+#endif
 
 bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
                                        int sessionTimeout,
@@ -162,44 +223,27 @@ bool USingularSDKBPLibrary::Initialize(FString apiKey, FString apiSecret,
     FJavaWrapper::CallVoidMethod(env, FJavaWrapper::GameActivityThis, setSingularData, TmapToJNIMap(configValues));
     
 #elif PLATFORM_IOS
-
-
-    NSString* key = apiKey.GetNSString();
-    NSString* secret = apiSecret.GetNSString();
-    
-    SingularConfig* singularConfig = [[SingularConfig alloc] initWithApiKey:key andSecret:secret];
-    singularConfig.skAdNetworkEnabled = skAdNetworkEnabled;
-    singularConfig.manualSkanConversionManagement = manualSkanConversionManagement;
-    singularConfig.waitForTrackingAuthorizationWithTimeoutInterval = waitForTrackingAuthorizationWithTimeoutInterval;
-    
-    if (singularConfig.skAdNetworkEnabled) {
-        singularConfig.conversionValueUpdatedCallback = ^(NSInteger conversionValue) {
-            BroadcastConversionValueUpdated(conversionValue);
-        };
-    }
+    singularApiKey = apiKey;
+    singularSecret = apiSecret;
+    singularSessionTimeout = sessionTimeout;
+    singularSkanEnabled = skAdNetworkEnabled;
+    singularManualSkanConversionManagement = manualSkanConversionManagement;
+    singularWaitForTrackingAuthorizationWithTimeoutInterval = waitForTrackingAuthorizationWithTimeoutInterval;
     
     if (customUserId.Len() > 0) {
         [Singular setCustomUserId:customUserId.GetNSString()];
     }
-    singularConfig.singularLinksHandler = ^(SingularLinkParams * params) {
-
-        FSingularLinkParams linkParams;
-
-        TMap<FString, FString> paramsDict;
-        FString deeplinkValue([params getDeepLink]);
-        FString passthroughValue([params getPassthrough]);
-        bool isDeferredValue([params isDeferred]);
-
-        paramsDict.Add("deeplink", *deeplinkValue);
-        paramsDict.Add("passthrough", *passthroughValue);
-        paramsDict.Add("isDeferred", isDeferredValue ? TEXT("True") : TEXT("False"));
-
-        linkParams.SingularDDLParams = paramsDict;
-        BroadcastDDLHandler(linkParams);     
-    };
-    [Singular setSessionTimeout:sessionTimeout];
-    [Singular setWrapperName:@UNREAL_ENGINE_SDK_NAME andVersion:@UNREAL_ENGINE_SDK_VERSION];
-    [Singular start:singularConfig];
+    
+    UIApplication* Application = [UIApplication sharedApplication];
+    IOSAppDelegate* appDelegate = (IOSAppDelegate*)[Application delegate];
+    NSDictionary* launchOptions = appDelegate.launchOptions;
+    
+    if (!didRegisterToWillGoToBackground){
+        FIOSCoreDelegates::OnWillResignActive.AddStatic(&OnWillResignActive);
+        didRegisterToWillGoToBackground = true;
+    }
+    
+    InitializeIOS(launchOptions, nil);
 #endif
     
     // Unreal Engine uses execptions disabled flag we can't add try/catch

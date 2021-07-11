@@ -9,9 +9,18 @@ UCLASS()
 class SINGULARSDK_API USingularSDKBPLibrary : public UBlueprintFunctionLibrary
 {
     static bool isInitialized;
+    static FString singularApiKey;
+    static FString singularSecret;
+    static int singularSessionTimeout;
+    static bool singularSkanEnabled;
+    static bool singularManualSkanConversionManagement;
+    static int singularWaitForTrackingAuthorizationWithTimeoutInterval;
+    
+    static bool didRegisterToOpenUrl;
+    static bool didRegisterToWillGoToBackground;
     
     GENERATED_UCLASS_BODY()
-	static void configure();
+    static void configure();
 
     // start
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "Initialize Singular SDK", Keywords = "Singular"), Category = "Singular-SDK")
@@ -76,4 +85,11 @@ class SINGULARSDK_API USingularSDKBPLibrary : public UBlueprintFunctionLibrary
     
     UFUNCTION(BlueprintCallable, meta = (DisplayName = "SKAN Register App For AdNetwork Attribution", Keywords = "SKAN"), Category = "Singular-SDK")
     static void SkanRegisterAppForAdNetworkAttribution();
+    
+private:
+#if PLATFORM_IOS
+    static void InitializeIOS(NSDictionary* launchOptions, NSURL *url);
+    static void OnOpenURL(UIApplication *application, NSURL *url, NSString *sourceApplication, id annotation);
+    static void OnWillResignActive();
+#endif
 };
