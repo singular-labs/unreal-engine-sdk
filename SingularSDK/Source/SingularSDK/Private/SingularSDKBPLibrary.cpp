@@ -59,7 +59,7 @@ extern "C"
         if (jPassthrough)
         {
             const char* c_passthrough_string_value = env->GetStringUTFChars(jPassthrough, NULL);
-            params.Add(TEXT("deeplink"), c_passthrough_string_value);
+            params.Add(TEXT("passthrough"), c_passthrough_string_value);
         }
 
         params.Add(TEXT("isDeferred"), isDeferred ? TEXT("True") : TEXT("False"));
