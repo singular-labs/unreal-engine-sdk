@@ -124,6 +124,8 @@ void USingularSDKBPLibrary::configure()
 bool USingularSDKBPLibrary::isInitialized = false;
 
 #if PLATFORM_IOS
+// We save all the params as static from the init method
+// Then they can be later used when opened with a deeplink from background.
 FString USingularSDKBPLibrary::singularApiKey;
 FString USingularSDKBPLibrary::singularSecret;
 int USingularSDKBPLibrary::singularSessionTimeout;
@@ -183,8 +185,8 @@ void USingularSDKBPLibrary::OnOpenURL(UIApplication *application, NSURL *url, NS
 void USingularSDKBPLibrary::OnWillResignActive(){
     if (!didRegisterToOpenUrl){
         // OnOpenURL is opened everytime the app is opened with a deeplink.
-        // We register for only here because we don't it to handle cold opens.
-        // For cold opens we use the launch options in the init method
+        // We register only here because we don't it to handle cold opens.
+        // For cold opens we use the launch options in the init method.
         FIOSCoreDelegates::OnOpenURL.AddStatic(&OnOpenURL);
         didRegisterToOpenUrl = true;
     }
