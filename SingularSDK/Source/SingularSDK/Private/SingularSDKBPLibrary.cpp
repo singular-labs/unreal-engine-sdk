@@ -16,7 +16,13 @@
 #endif
 
 #define UNREAL_ENGINE_SDK_NAME "UnrealEngine"
-#define UNREAL_ENGINE_SDK_VERSION "1.4.0"
+#define UNREAL_ENGINE_SDK_VERSION "1.4.1"
+
+void BroadcastOnSingularLinksResolved(FSingularLinkParams params) {
+    for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
+        Itr->OnSingularLinksResolved.Broadcast(params);
+    }
+}
 
 #if PLATFORM_ANDROID
 
@@ -28,13 +34,6 @@
 // Void     V
 // int[]    [I
 // double[] [D
-
-void BroadcastOnSingularLinksResolved(FSingularLinkParams params) {
-    for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
-        Itr->OnSingularLinksResolved.Broadcast(params);
-    }
-}
-
 extern "C"
 {
     JNIEXPORT void JNICALL Java_com_epicgames_ue4_GameActivity_00024SingularUeLinkHandler_OnResolvedLink(JNIEnv *env, jobject obj, jobject linkParams)
