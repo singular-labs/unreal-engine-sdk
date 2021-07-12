@@ -45,6 +45,7 @@ dependencies {
     private int singularSessionTimeoutInSec = 60;
     private String singularCustomUserId = null;
     private boolean singularCollectOAID = false;
+    private int singularIntentHash;
 
     // Singular Initialization Methods
 
@@ -78,7 +79,11 @@ dependencies {
             config.withOAIDCollection();
         }
         
-        config.withSingularLink(getIntent(), new SingularUeLinkHandler());
+        Intent intent = getIntent();
+        if(intent != null &amp;&amp; intent.hashCode() != singularIntentHash) {
+            singularIntentHash = intent.hashCode();
+            config.withSingularLink(intent, new SingularUeLinkHandler());
+        }
 
         Singular.init(getApplicationContext(), config);
     }
@@ -156,4 +161,9 @@ dependencies {
         initSingular();
         </insert>
     </gameActivityOnCreateAdditions>
+    <gameActivityOnNewIntentAdditions>
+        <insert>
+        initSingular();
+        </insert>
+    </gameActivityOnNewIntentAdditions>
 </root>
