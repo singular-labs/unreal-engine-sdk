@@ -28,6 +28,13 @@
 // Void     V
 // int[]    [I
 // double[] [D
+
+void BroadcastOnSingularLinksResolved(FSingularLinkParams params) {
+    for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
+        Itr->OnSingularLinksResolved.Broadcast(params);
+    }
+}
+
 extern "C"
 {
     JNIEXPORT void JNICALL Java_com_epicgames_ue4_GameActivity_00024SingularUeLinkHandler_OnResolvedLink(JNIEnv *env, jobject obj, jobject linkParams)
@@ -100,13 +107,6 @@ void BroadcastConversionValueUpdated(int conversionValue) {
         Itr->OnConversionValueUpdated.Broadcast(conversionValue);
     }
 }
-
-void BroadcastOnSingularLinksResolved(FSingularLinkParams params) {
-    for (TObjectIterator<USingularDelegates> Itr; Itr; ++Itr) {
-        Itr->OnSingularLinksResolved.Broadcast(params);
-    }
-}
-
 
 #endif
 
